@@ -1,0 +1,4 @@
+apple 1
+strawberry 2
+wildberries 1
+apple 3

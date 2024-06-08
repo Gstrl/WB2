@@ -1,0 +1,10 @@
+1:apple 1
+2:banana 3
+11:strawberry 2
+12:wildberries 1
+13:apple 3
+15:cherry 4
+16:date 1
+17:elderberry 2
+18:fig 1
+19:grapefruit 4

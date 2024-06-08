@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>dev04: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">WB2/develop/dev04/task.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "fmt"
+        "strings"
+)
+
+// linter ругается на Magic number. Тк Входные данные для функции: ссылка на массив,
+// каждый элемент которого - слово на русском языке в кодировке utf8.
+// в некоторый местах для получения количества символов, я делю
+// количество байт на 2, отсюда берется Magic number
+
+// Set  setSymbols - символы множества и их количество, setElem - элементы множества
+type Set struct {
+        setSymbols map[rune]int
+        setElem    []string
+}
+
+// CheckSet проверяет вход�<span class="cov8" title="1">�т ли слово в множество
+func (s *Set) CheckSet(str string) bool {
+        setStr := make(map[run</span><span class="cov8" title="1">e]int, len(str)/2)
+        for _, v := range str {
+                _, ok </span><span class="cov8" title="1">:= setStr[v]
+                if ok {
+                        </span>setSt<span class="cov8" title="1">r[v]++
+                } else {
+                        </span>setStr[v] = 1
+                }
+        }
+
+        <span class="cov8" title="1">// если симво</span><span class="cov8" title="1">лы и их количество в слове совпадает с символами множества возвращаем true
+        for _, v := range str {
+                _, ok </span><span class="cov8" title="1">:= s.setSymbols[v]
+                if ok {
+</span>                        if setStr[v] != s.setSymbols[v] {
+                                </span>return false
+                        }
+                } else {
+                        </span>return false
+                }
+        <span class="cov8" title="1">}
+</span>        return true
+}
+
+// AppendSet добавляет сл<span class="cov8" title="1">ово к элементам множества
+func (s *Set) AppendSet(str string) {
+        </span>s.setElem = append(s.setElem, str)
+}
+
+// newSet создает н�<span class="cov8" title="1">�вое множество (символы множества и первый элемент)
+func newSet(str string) Set {
+        setElem := make([]string, 1, 2)
+        setElem[0] = str
+        setSymbols := make(map</span><span class="cov8" title="1">[rune]int, len(str)/2)
+        for _, v := range str {
+                _, ok </span><span class="cov8" title="1">:= setSymbols[v]
+                if ok {
+                        </span>setSy<span class="cov8" title="1">mbols[v]++
+                } else {
+                        </span>setSymbols[v] = 1
+                }
+        <span class="cov8" title="1">}
+        return Set{
+                setElem:    setElem,
+                </span>setSymbols: setSymbols,
+        }
+}
+
+// MakeSet группирует слайс стр�<span class="cov8" title="1">�к в множества
+func MakeSet(arrStr [</span><span class="cov8" title="1">]string) map[string][]string {
+        if len(arrStr) == 0 {
+                </span>return nil
+        }
+        <span class="cov8" title="1">// приведение к нижн�</span><span class="cov8" title="1">�му регистру
+        for i := 0; i &lt;= len(arrStr)-1; i++ {
+                </span>arrStr[i] = strings.ToLower(arrStr[i])
+        }
+
+        <span class="cov8" title="1">// создаем слайс множеств и добавляем первое множество
+        arrSet := make([]Set, 0)
+        arrSet = append(arrSet, newSet(arrStr[0]))
+
+        // если не попали ни �</span><span class="cov8" title="1">� одно множество создаем новое
+        for i := 1; i &lt;= len(arrStr)-1; i++ {
+                // если в слов</span><span class="cov8" title="1">е &lt;=1 оно не может быть множеством
+                if len(ar</span>rStr[i]) &lt;= 1 {
+                        continue
+                }
+
+                hitSet := false
+
+</span>                for ii := 0; ii &lt;= len(arrSet)-1; i</span><span class="cov8" title="1">i++ {
+                        if arrSet[ii].CheckSet(arrStr[i]) {
+                                hitSet = true
+                                arrSe</span>t[ii].AppendSet(arrStr[i])
+                                break
+                        }
+                <span class="cov8" title="1">}
+</span>                if !hitSet {
+                        </span>arrSet = append(arrSet, newSet(arrStr[i]))
+                }
+        <span class="cov8" title="1">}
+</span>        return resMap(arrSet)
+}
+
+// resMap проверяет количе<span class="cov8" title="1">ство элементов множества и возвращает результат группировки
+func resMap(s []Set) map[string][]string {
+        res := make(map[string][]string</span><span class="cov8" title="1">)
+        for i := 0; i &lt;= len(s)-1; </span><span class="cov8" title="1">i++ {
+                if len(s[</span>i].setElem) == 1 {
+                        continue
+                <span class="cov8" title="1">}
+</span>                res[s[i].setElem[0]] = s[i].setElem
+        <span class="cov8" title="1">}
+</span>        return res
+}
+
+func main() {
+        arrStr := []string{"сос", "кек", "ссо", "осс", "лол"}
+        fmt.Println(MakeSet(arrStr))
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

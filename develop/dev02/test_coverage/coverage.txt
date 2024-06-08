@@ -1,0 +1,23 @@
+mode: set
+WB2/develop/dev02/task.go:11.45,14.22 3 1
+WB2/develop/dev02/task.go:14.22,15.25 1 1
+WB2/develop/dev02/task.go:15.25,16.43 1 1
+WB2/develop/dev02/task.go:16.43,20.5 1 1
+WB2/develop/dev02/task.go:21.4,22.65 2 1
+WB2/develop/dev02/task.go:23.9,25.4 1 1
+WB2/develop/dev02/task.go:26.3,26.15 1 1
+WB2/develop/dev02/task.go:28.2,28.29 1 1
+WB2/develop/dev02/task.go:32.55,38.22 5 1
+WB2/develop/dev02/task.go:38.22,41.33 1 1
+WB2/develop/dev02/task.go:41.33,44.12 3 1
+WB2/develop/dev02/task.go:46.3,46.21 1 1
+WB2/develop/dev02/task.go:46.21,48.4 1 1
+WB2/develop/dev02/task.go:50.3,50.25 1 1
+WB2/develop/dev02/task.go:50.25,51.22 1 1
+WB2/develop/dev02/task.go:51.22,53.5 1 1
+WB2/develop/dev02/task.go:53.10,55.19 2 1
+WB2/develop/dev02/task.go:55.19,57.6 1 0
+WB2/develop/dev02/task.go:58.5,58.66 1 1
+WB2/develop/dev02/task.go:60.9,62.4 1 1
+WB2/develop/dev02/task.go:63.3,63.15 1 1
+WB2/develop/dev02/task.go:66.2,66.29 1 1
