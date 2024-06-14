@@ -1,185 +1,203 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"golang.org/x/net/html"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
-	"time"
 )
 
 type Wget struct {
-	depth      int
-	nestedUrls []string
+	processed map[string]struct{}
 }
 
-func (w *Wget) FromArgs() (string, error) {
-	flagL := flag.Int("l", 0, "выбрать поля (колонки)")
+// FromArgs читаем флаги, создаем папку где будем всё хранить, инициалицируем мапу
+func (w *Wget) FromArgs() (string, int, error) {
+	flagL := flag.Int("l", 0, "specifies the maximum nesting depth")
 	flag.Parse()
 
 	args := flag.Args()
-	fmt.Println(args)
 	if len(args) != 1 {
-		return "", fmt.Errorf("использование: go run main.go <URL>")
+		return "", 0, fmt.Errorf("usage: go run main.go <URL>")
 	}
-	url := args[0]
+	inputURL := args[0]
 
-	splitUrl := strings.Split(url, "/")
-	folderName := splitUrl[len(splitUrl)-1]
+	if inputURL[len(inputURL)-1] == '/' {
+		inputURL = inputURL[:len(inputURL)-1]
+	}
 
-	err := os.Mkdir(folderName, 0700)
+	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
-		log.Fatalf("Не удалось создать папку:%s, %v", folderName, err)
+		return "", 0, fmt.Errorf("invalid URL: %v", err)
 	}
-	fmt.Println("Папка успешно создана")
+
+	folderName := parsedURL.Hostname()
+	err = os.Mkdir(folderName, 0o700)
+	if err != nil && !os.IsExist(err) {
+		return "", 0, fmt.Errorf("failed to create folder: %v", err)
+	}
+	fmt.Println("Folder successfully created")
 
 	if err := os.Chdir(folderName); err != nil {
-		fmt.Printf("Error changing directory: %v\n", err)
-		os.Exit(1)
+		return "", 0, fmt.Errorf("error changing directory: %v", err)
 	}
 
-	w.depth = *flagL
-	return url, nil
+	w.processed = make(map[string]struct{}, 100)
+	return inputURL, *flagL, nil
 }
 
-// GetBody стоит оставить
-func (w *Wget) GetBody(url string) (*http.Response, error) {
-	response, err := http.Get(url)
-
+// getBody fetches the body of the GET request and returns it
+func (w *Wget) getBody(pageURL string) (*http.Response, error) {
+	resp, err := http.Get(pageURL)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка при скачивании файла: %v", err)
+		return nil, fmt.Errorf("error fetching file: %w", err)
 	}
 
-	return response, nil
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("received non-200 response code: %d", resp.StatusCode)
+	}
+
+	return resp, nil
 }
 
-// CreateHTML стоит оставить
-func (w *Wget) CreateHTML(url string, response *http.Response) error {
+// CreateHTML создаем имя файла из url и сохраняем его
+func (w *Wget) createHTML(pageURL string, response *http.Response) error {
 	defer response.Body.Close()
 
-	fn := fileName(url)
+	fn := fileName(pageURL)
 	path := fmt.Sprintf("%s.html", fn)
 
 	file, err := os.Create(path)
 	if err != nil {
-		fmt.Println("Ошибка при создании файла:", err)
-		return fmt.Errorf("ошибка при создании файла: %v", err)
+		return fmt.Errorf("error creating file: %w", err)
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
-		return fmt.Errorf("ошибка при записи файла: %v", err)
+		return fmt.Errorf("error writing file: %w", err)
 	}
 
-	fmt.Printf("Файл успешно скачан и сохранен как %s\n", path)
+	fmt.Printf("File successfully downloaded and saved as %s\n", path)
 	return nil
 }
 
 func (w *Wget) Run() {
-	url, err := w.FromArgs()
+	startURL, depth, err := w.FromArgs()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	response, err := w.GetBody(url)
+	err = w.download(startURL, depth)
 	if err != nil {
 		log.Fatal(err)
-	}
-	err = w.CreateHTML(url, response)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if w.depth != 0 {
-		RunRecursiv(w.depth, url)
 	}
 }
 
-func RunRecursiv(depth int, url string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Millisecond*80))
-	defer cancel()
-
-	nestedUrls, err := extractLinks(ctx, url)
+// download рекурсивно проходим по всем ссылкам с учетом глубины l
+func (w *Wget) download(pageURL string, depth int) error {
+	response, err := w.getBody(pageURL)
 	if err != nil {
-		return
+		return err
 	}
 
-	wget := Wget{
-		depth:      depth,
-		nestedUrls: nestedUrls,
+	err = w.createHTML(pageURL, response)
+	if err != nil {
+		return err
 	}
 
-	defer cancel()
-
-	for _, v := range wget.nestedUrls {
-		if v != url {
-			response, err := wget.GetBody(v)
-			if err != nil {
-				continue
-			}
-			err = wget.CreateHTML(v, response)
-			if err != nil {
-				continue
-			}
-
-			if wget.depth != 0 {
-				RunRecursiv(wget.depth-1, v)
-			}
-		}
-	}
-}
-func extractLinks(ctx context.Context, url string) ([]string, error) {
-
-	links := make([]string, 0)
-	select {
-	case <-ctx.Done():
-		return links, nil
-	default:
-		resp, err := http.Get(url)
-		tokenizer := html.NewTokenizer(resp.Body)
+	if depth > 0 {
+		nestedURLs, err := extractLinks(pageURL)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		defer resp.Body.Close()
-		for {
-			tokenType := tokenizer.Next()
-			if tokenType == html.ErrorToken {
-				break
+
+		for _, link := range nestedURLs {
+			// проверям встречался ли этот url ранее
+			if _, ok := w.processed[link]; ok {
+				continue
+			} else {
+				w.processed[link] = struct{}{}
 			}
-			token := tokenizer.Token()
-			if tokenType == html.StartTagToken && token.Data == "a" {
-				for _, attr := range token.Attr {
-					if attr.Key == "href" {
-						link := attr.Val
-						if strings.HasPrefix(link, "http") {
-							fmt.Println(link)
-							links = append(links, link)
-						}
+			err = w.download(link, depth-1)
+			if err != nil {
+				log.Printf("Failed to download %s: %v", link, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// extractLinks возвращает найденные на сайте ссылки
+func extractLinks(pageURL string) ([]string, error) {
+	var links []string
+
+	resp, err := http.Get(pageURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	baseURL, err := url.Parse(pageURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL: %v", err)
+	}
+
+	tokenizer := html.NewTokenizer(resp.Body)
+	for {
+		tokenType := tokenizer.Next()
+		if tokenType == html.ErrorToken {
+			break
+		}
+		token := tokenizer.Token()
+		if tokenType == html.StartTagToken && token.Data == "a" {
+			for _, attr := range token.Attr {
+				if attr.Key == "href" {
+					link := attr.Val
+					parsedLink, err := baseURL.Parse(link)
+					if err != nil {
+						continue
+					}
+					if strings.HasPrefix(parsedLink.String(), "http") {
+						fmt.Println(parsedLink.String())
+						links = append(links, parsedLink.String())
 					}
 				}
 			}
 		}
 	}
+	uniqueLinks := dedupeStrings(links)
 
-	return links, nil
+	return uniqueLinks, nil
 }
 
-func fileName(url string) string {
-	fn := strings.ReplaceAll(url, "/", "")
-	fn = strings.ReplaceAll(fn, ".", "")
-	fn = strings.ReplaceAll(fn, "https:", "")
-	fn = strings.ReplaceAll(fn, "http:", "")
-	fn = strings.ReplaceAll(fn, "?", "")
-	fn = strings.ReplaceAll(fn, "=", "")
-	fn = strings.ReplaceAll(fn, ",", "")
+// fileName удаляем то что излишне или не может быть в имени файла
+func fileName(pageURL string) string {
+	parsedURL, _ := url.Parse(pageURL)
+	fn := strings.ReplaceAll(parsedURL.Host+parsedURL.Path, "/", "_")
+	extra := []string{".", "?", "=", ","}
+	for _, v := range extra {
+		fn = strings.ReplaceAll(fn, v, "")
+	}
 	return fn
+}
+
+// dedupeStrings возвращает уникальные элементы слайса
+func dedupeStrings(arr []string) []string {
+	m, uniq := make(map[string]struct{}), make([]string, 0, len(arr))
+	for _, v := range arr {
+		if _, ok := m[v]; !ok {
+			m[v], uniq = struct{}{}, append(uniq, v)
+		}
+	}
+	return uniq
 }
 
 func main() {
